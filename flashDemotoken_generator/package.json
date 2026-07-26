@@ -1,0 +1,26 @@
+{
+  "name": "flash-usdt-contracts",
+  "version": "1.0.0",
+  "description": "FlashUSDT ERC-20 contract with expiry – part of USDT Generator Pro",
+  "scripts": {
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "deploy": "npx hardhat deploy-flash",
+    "deploy:sepolia": "npx hardhat deploy-flash --network sepolia",
+    "deploy:polygon": "npx hardhat deploy-flash --network polygon",
+    "deploy:amoy": "npx hardhat deploy-flash --network polygon_amoy",
+    "deploy:bsc": "npx hardhat deploy-flash --network bsc",
+    "deploy:bsc-testnet": "npx hardhat deploy-flash --network bsc_testnet",
+    "deploy:tron": "node scripts/deploy_tron.js"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "@nomicfoundation/solidity-analyzer-win32-x64-msvc": "^0.1.2",
+    "ethers": "^6.13.0",
+    "hardhat": "^2.22.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.2.0",
+    "dotenv": "^16.4.0"
+  }
+}
