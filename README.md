@@ -102,7 +102,6 @@ Compile first so the Tron artifact exists:
 ```powershell
 cd flashDemotoken_generator
 npx hardhat compile
-npm install --save-dev tronweb
 node scripts/deploy_tron.js
 ```
 
@@ -113,6 +112,14 @@ TRON_FULL_HOST=https://api.shasta.trongrid.io
 TRON_PRIVATE_KEY=...
 TRON_PRO_API_KEY=...
 FLASH_VALIDITY_MONTHS=6
+```
+
+After deployment, inspect or mint:
+
+```powershell
+npm run tron:info
+npm run tron:mint -- TRecipientAddress 100
+npm run tron:balance -- TRecipientAddress
 ```
 
 ## Swap And Trade Enablement

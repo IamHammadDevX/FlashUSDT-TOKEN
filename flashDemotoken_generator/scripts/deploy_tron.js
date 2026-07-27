@@ -1,6 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 
+require("dotenv").config({ path: path.join(__dirname, "..", "..", ".env") });
+
 const MIN_MONTHS = 3;
 const MAX_MONTHS = 6;
 
@@ -23,9 +25,10 @@ function writeDeployment(record) {
 async function main() {
   let TronWeb;
   try {
-    TronWeb = require("tronweb");
+    const tronwebModule = require("tronweb");
+    TronWeb = tronwebModule.TronWeb || tronwebModule;
   } catch (error) {
-    throw new Error("Install tronweb before deploying on Tron: npm install --save-dev tronweb");
+    throw new Error("Install tronweb before deploying on Tron: npm install tronweb");
   }
 
   const fullHost = process.env.TRON_FULL_HOST || "https://api.shasta.trongrid.io";
@@ -56,10 +59,13 @@ async function main() {
   });
 
   const address = deployed.address;
+  const base58Address = String(address).startsWith("T") ? address : tronWeb.address.fromHex(address);
+  const hexAddress = String(address).startsWith("T") ? tronWeb.address.toHex(address) : address;
   const record = {
     contract: "FlashUSDTTron",
     network: fullHost.includes("shasta") ? "shasta" : "mainnet",
-    address,
+    address: base58Address,
+    hexAddress,
     expiry,
     validityMonths: months,
     deployedAt: new Date().toISOString(),
@@ -67,7 +73,7 @@ async function main() {
   const file = writeDeployment(record);
 
   console.log(`FlashUSDTTron deployed to ${record.network}`);
-  console.log(`Address: ${address}`);
+  console.log(`Address: ${base58Address}`);
   console.log(`Expiry: ${expiry}`);
   console.log(`Deployment record: ${file}`);
 }

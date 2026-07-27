@@ -1,8 +1,11 @@
 ﻿"""Blockchain access layer for FlashUSDT."""
 import hashlib
 import logging
+import os
+import subprocess
 import time
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Optional
 
 import requests
@@ -305,6 +308,51 @@ class TronChainManager:
             timestamp=now,
             expiry=now + VALIDITY_MAP[validity_months],
             validity_months=validity_months,
+        )
+
+    def mint_flash(self, private_key: str, recipient: str, amount: float, months: int = 6) -> GeneratedToken:
+        validate_amount(amount)
+        validate_validity_months(months)
+        validate_tron_address(recipient)
+        contract_address = load_deployed_flash_address("Tron")
+        if not contract_address:
+            raise ValueError("FlashUSDT Tron contract address is not configured")
+
+        sender = self.derive_address(private_key)
+        project_root = Path(__file__).resolve().parents[1]
+        env = os.environ.copy()
+        env["TRON_PRIVATE_KEY"] = normalize_private_key(private_key).removeprefix("0x")
+
+        result = subprocess.run(
+            ["node", "scripts/tron_flash.js", "mint", recipient, str(amount)],
+            cwd=project_root,
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=180,
+            check=False,
+        )
+        if result.returncode != 0:
+            message = (result.stderr or result.stdout or "Tron mint failed").strip()
+            raise RuntimeError(message)
+
+        tx_hash = ""
+        for line in result.stdout.splitlines():
+            if line.startswith("Mint submitted:"):
+                tx_hash = line.split(":", 1)[1].strip()
+                break
+
+        now = int(time.time())
+        return GeneratedToken(
+            tx_hash=tx_hash,
+            token_address=contract_address,
+            network="Tron",
+            sender=sender,
+            recipient=recipient,
+            amount=float(amount),
+            timestamp=now,
+            expiry=now + VALIDITY_MAP[months],
+            validity_months=months,
         )
 
     def swap_token(self, from_token: str, to_token: str, amount: float, slippage: float) -> SwapRequest:

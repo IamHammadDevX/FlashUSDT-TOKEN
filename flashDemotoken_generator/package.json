@@ -12,6 +12,9 @@
     "deploy:bsc": "npx hardhat deploy-flash --network bsc",
     "deploy:bsc-testnet": "npx hardhat deploy-flash --network bsc_testnet",
     "deploy:tron": "node scripts/deploy_tron.js",
+    "tron:info": "node scripts/tron_flash.js info",
+    "tron:mint": "node scripts/tron_flash.js mint",
+    "tron:balance": "node scripts/tron_flash.js balance",
     "verify:latest": "node scripts/verify.js",
     "verify:v2": "node scripts/verify_etherscan_v2.js",
     "verify:sepolia": "npx hardhat verify --network sepolia",
@@ -21,13 +24,13 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
     "@nomicfoundation/hardhat-verify": "^2.0.14",
-    "@nomicfoundation/hardhat-verify": "^2.0.14",
     "@nomicfoundation/solidity-analyzer-win32-x64-msvc": "^0.1.2",
     "ethers": "^6.13.0",
     "hardhat": "^2.22.0"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.2.0",
-    "dotenv": "^16.4.0"
+    "dotenv": "^16.4.0",
+    "tronweb": "^6.4.0"
   }
 }

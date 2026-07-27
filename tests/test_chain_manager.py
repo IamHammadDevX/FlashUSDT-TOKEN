@@ -6,7 +6,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "flashDemotoken_generator"))
 
 from core import blockchain
-from core.blockchain import ChainManager, EVMChainManager, SwapRequest, base58check_encode, validate_tron_address
+from core.blockchain import ChainManager, EVMChainManager, SwapRequest, TronChainManager, base58check_encode, validate_tron_address
 
 
 class FakeImpl:
@@ -89,3 +89,31 @@ def test_tron_address_validation_checks_base58_checksum():
     assert validate_tron_address(valid_address) == valid_address
     with pytest.raises(ValueError, match="Invalid Tron address"):
         validate_tron_address(valid_address[:-1] + "1")
+
+
+def test_tron_mint_flash_uses_real_mint_script(monkeypatch):
+    calls = {}
+    private_key = "1" * 64
+    recipient = base58check_encode(bytes.fromhex("41" + "11" * 20))
+
+    class Result:
+        returncode = 0
+        stdout = "Mint submitted: abc123\n"
+        stderr = ""
+
+    manager = TronChainManager.__new__(TronChainManager)
+    monkeypatch.setattr(manager, "derive_address", lambda key: recipient)
+    monkeypatch.setattr(blockchain, "load_deployed_flash_address", lambda network: recipient)
+
+    def fake_run(command, **kwargs):
+        calls["command"] = command
+        calls["env_key"] = kwargs["env"]["TRON_PRIVATE_KEY"]
+        return Result()
+
+    monkeypatch.setattr(blockchain.subprocess, "run", fake_run)
+
+    token = manager.mint_flash(private_key, recipient, 5, 6)
+
+    assert calls["command"][:3] == ["node", "scripts/tron_flash.js", "mint"]
+    assert calls["env_key"] == private_key
+    assert token.tx_hash == "abc123"

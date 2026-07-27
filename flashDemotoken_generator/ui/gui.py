@@ -288,7 +288,7 @@ class USDTGeneratorApp(ctk.CTk):
                 amount = float(self._amount_var.get().strip())
                 recipient = self._recipient_var.get().strip()
                 pk = self._pk_var.get().strip()
-                if self._chain_mgr.flash_usdt_available and self._chain_mgr.network != "Tron":
+                if self._chain_mgr.flash_usdt_available:
                     token = self._chain_mgr.mint_flash(pk, recipient, amount, months)
                 else:
                     token = self._chain_mgr.generate_token(pk, recipient, amount, months)
