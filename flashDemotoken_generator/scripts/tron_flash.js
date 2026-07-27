@@ -75,6 +75,23 @@ async function balance(address) {
   console.log(`${value} FUSDT`);
 }
 
+async function transfer(recipient, amount) {
+  if (!recipient || !amount) {
+    throw new Error("Usage: node scripts/tron_flash.js transfer <recipient> <amount>");
+  }
+  const tronWeb = getTronWeb();
+  if (!tronWeb.isAddress(recipient)) {
+    throw new Error(`Invalid Tron recipient address: ${recipient}`);
+  }
+  const contract = await contractInstance(tronWeb);
+  const decimals = Number(await contract.decimals().call());
+  const rawAmount = ethers.parseUnits(String(amount), decimals).toString();
+  const txId = await contract.transfer(recipient, rawAmount).send({
+    feeLimit: Number(process.env.TRON_FEE_LIMIT || 1_000_000_000),
+  });
+  console.log(`Transfer submitted: ${txId}`);
+}
+
 async function info() {
   const tronWeb = getTronWeb();
   const deployment = loadDeployment();
@@ -94,12 +111,14 @@ async function main() {
   const [command, first, second] = process.argv.slice(2);
   if (command === "mint") {
     await mint(first, second);
+  } else if (command === "transfer") {
+    await transfer(first, second);
   } else if (command === "balance") {
     await balance(first);
   } else if (command === "info") {
     await info();
   } else {
-    throw new Error("Usage: node scripts/tron_flash.js <info|mint|balance> [args]");
+    throw new Error("Usage: node scripts/tron_flash.js <info|mint|transfer|balance> [args]");
   }
 }
 

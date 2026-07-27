@@ -14,6 +14,7 @@
     "deploy:tron": "node scripts/deploy_tron.js",
     "tron:info": "node scripts/tron_flash.js info",
     "tron:mint": "node scripts/tron_flash.js mint",
+    "tron:transfer": "node scripts/tron_flash.js transfer",
     "tron:balance": "node scripts/tron_flash.js balance",
     "verify:latest": "node scripts/verify.js",
     "verify:v2": "node scripts/verify_etherscan_v2.js",

@@ -6,7 +6,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "flashDemotoken_generator"))
 
 from core import blockchain
-from core.blockchain import ChainManager, EVMChainManager, SwapRequest, TronChainManager, base58check_encode, validate_tron_address
+from core.blockchain import ChainManager, EVMChainManager, SwapRequest, TransferResult, TronChainManager, base58check_encode, validate_tron_address
 
 
 class FakeImpl:
@@ -26,6 +26,16 @@ class FakeImpl:
             slippage=float(slippage),
             status="prepared",
             instructions="mock swap",
+        )
+
+    def transfer_flash(self, private_key, recipient, amount):
+        return TransferResult(
+            tx_hash="0xabc",
+            token_address="0x0000000000000000000000000000000000000001",
+            network="Ethereum",
+            sender="0x0000000000000000000000000000000000000002",
+            recipient=recipient,
+            amount=float(amount),
         )
 
 
@@ -117,3 +127,13 @@ def test_tron_mint_flash_uses_real_mint_script(monkeypatch):
     assert calls["command"][:3] == ["node", "scripts/tron_flash.js", "mint"]
     assert calls["env_key"] == private_key
     assert token.tx_hash == "abc123"
+
+
+def test_transfer_flash_delegates_to_impl(monkeypatch):
+    monkeypatch.setattr(blockchain, "EVMChainManager", lambda network: FakeImpl())
+    manager = ChainManager("Ethereum")
+
+    result = manager.transfer_flash("0x" + "1" * 64, "0x0000000000000000000000000000000000000003", 7)
+
+    assert result.tx_hash == "0xabc"
+    assert result.amount == 7

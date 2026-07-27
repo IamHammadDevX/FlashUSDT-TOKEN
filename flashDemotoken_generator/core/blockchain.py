@@ -78,6 +78,17 @@ class SwapRequest:
     tx_hash: Optional[str] = None
 
 
+@dataclass
+class TransferResult:
+    tx_hash: str
+    token_address: str
+    network: str
+    sender: str
+    recipient: str
+    amount: float
+    status: str = "submitted"
+
+
 class EVMChainManager:
     """Manages Ethereum, Polygon, and BSC compatible networks."""
 
@@ -241,6 +252,40 @@ class EVMChainManager:
             "chainId": CHAIN_IDS[self.network],
         })
 
+    def transfer_flash(self, private_key: str, recipient: str, amount: float) -> TransferResult:
+        validate_amount(amount)
+        recipient = validate_evm_address(recipient)
+        contract_address = load_deployed_flash_address(self.network)
+        if not contract_address:
+            raise ValueError(f"FlashUSDT contract address is not configured for {self.network}")
+
+        account = self.w3.eth.account.from_key(normalize_private_key(private_key))
+        contract = self.w3.eth.contract(address=validate_evm_address(contract_address), abi=FLASH_USDT_ABI)
+        decimals = contract.functions.decimals().call()
+        amount_wei = int(float(amount) * (10 ** decimals))
+
+        tx = contract.functions.transfer(recipient, amount_wei).build_transaction({
+            "from": account.address,
+            "nonce": self.w3.eth.get_transaction_count(account.address, "pending"),
+            "gas": estimate_gas_or_default(contract.functions.transfer(recipient, amount_wei), account.address, 100_000),
+            "gasPrice": self.w3.eth.gas_price,
+            "chainId": CHAIN_IDS[self.network],
+        })
+        signed = account.sign_transaction(tx)
+        tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
+        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+        if receipt["status"] != 1:
+            raise RuntimeError(f"Transfer transaction reverted: {tx_hash.hex()}")
+
+        return TransferResult(
+            tx_hash=tx_hash.hex(),
+            token_address=contract_address,
+            network=self.network,
+            sender=account.address,
+            recipient=recipient,
+            amount=float(amount),
+        )
+
 
 class TronChainManager:
     """Tron support via TronGrid-compatible HTTP endpoints."""
@@ -376,6 +421,46 @@ class TronChainManager:
             instructions="Use TronWeb to approve the router and submit the TronTrade-compatible swap call.",
         )
 
+    def transfer_flash(self, private_key: str, recipient: str, amount: float) -> TransferResult:
+        validate_amount(amount)
+        validate_tron_address(recipient)
+        contract_address = load_deployed_flash_address("Tron")
+        if not contract_address:
+            raise ValueError("FlashUSDT Tron contract address is not configured")
+
+        sender = self.derive_address(private_key)
+        project_root = Path(__file__).resolve().parents[1]
+        env = os.environ.copy()
+        env["TRON_PRIVATE_KEY"] = normalize_private_key(private_key).removeprefix("0x")
+
+        result = subprocess.run(
+            ["node", "scripts/tron_flash.js", "transfer", recipient, str(amount)],
+            cwd=project_root,
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=180,
+            check=False,
+        )
+        if result.returncode != 0:
+            message = (result.stderr or result.stdout or "Tron transfer failed").strip()
+            raise RuntimeError(message)
+
+        tx_hash = ""
+        for line in result.stdout.splitlines():
+            if line.startswith("Transfer submitted:"):
+                tx_hash = line.split(":", 1)[1].strip()
+                break
+
+        return TransferResult(
+            tx_hash=tx_hash,
+            token_address=contract_address,
+            network="Tron",
+            sender=sender,
+            recipient=recipient,
+            amount=float(amount),
+        )
+
 
 class ChainManager:
     """Unified chain facade used by the GUI and tests."""
@@ -411,6 +496,11 @@ class ChainManager:
         validate_amount(amount)
         validate_slippage(slippage)
         return self.impl.swap_token(from_token, to_token, amount, slippage)
+
+    def transfer_flash(self, private_key: str, recipient: str, amount: float) -> TransferResult:
+        if not hasattr(self.impl, "transfer_flash"):
+            raise NotImplementedError(f"FlashUSDT transfer is not implemented for {self.network}")
+        return self.impl.transfer_flash(private_key, recipient, amount)
 
     def list_on_exchange(self, exchange_name: str, token_address: str) -> dict:
         if exchange_name not in ALL_PLATFORMS:

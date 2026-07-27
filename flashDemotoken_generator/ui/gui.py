@@ -21,7 +21,7 @@ from config import (
     SUPPORTED_WALLETS,
     TRADING_PLATFORMS,
 )
-from core.blockchain import ChainManager, GeneratedToken, SwapRequest
+from core.blockchain import ChainManager, GeneratedToken, SwapRequest, TransferResult
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +130,7 @@ class USDTGeneratorApp(ctk.CTk):
         self._tabs = ctk.CTkTabview(right, fg_color=COLORS["panel"], segmented_button_fg_color=COLORS["input"])
         self._tabs.pack(fill="both", expand=True, padx=10, pady=10)
         self._build_generate_tab(self._tabs.add("Generate"))
+        self._build_transfer_tab(self._tabs.add("Transfer"))
         self._build_swap_tab(self._tabs.add("Swap"))
         self._build_listing_tab(self._tabs.add("Listing"))
         self._build_status_tab(self._tabs.add("Status"))
@@ -189,6 +190,18 @@ class USDTGeneratorApp(ctk.CTk):
         ctk.CTkButton(form, text="Prepare Swap", command=self._on_prepare_swap, fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"], text_color="#07100d").pack(fill="x", pady=(8, 4))
         self._swap_output = OutputPanel(tab, "Swap Preparation")
         self._swap_output.pack(fill="both", expand=True, padx=8, pady=8)
+
+    def _build_transfer_tab(self, tab):
+        form = ctk.CTkFrame(tab, fg_color="transparent")
+        form.pack(fill="x", padx=8, pady=8)
+        self._transfer_to_var = ctk.StringVar()
+        self._transfer_amount_var = ctk.StringVar(value="10")
+        ctk.CTkEntry(form, placeholder_text="Recipient wallet address", textvariable=self._transfer_to_var, fg_color=COLORS["input"]).pack(fill="x", pady=4)
+        ctk.CTkEntry(form, placeholder_text="Amount", textvariable=self._transfer_amount_var, fg_color=COLORS["input"]).pack(fill="x", pady=4)
+        self._transfer_btn = ctk.CTkButton(form, text="Send FlashUSDT", command=self._on_transfer, fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"], text_color="#07100d")
+        self._transfer_btn.pack(fill="x", pady=(8, 4))
+        self._transfer_output = OutputPanel(tab, "Transfer Result")
+        self._transfer_output.pack(fill="both", expand=True, padx=8, pady=8)
 
     def _build_listing_tab(self, tab):
         form = ctk.CTkFrame(tab, fg_color="transparent")
@@ -347,6 +360,45 @@ class USDTGeneratorApp(ctk.CTk):
             f"Next step: {request.instructions}"
         )
         self.set_status("Swap request prepared")
+
+    def _on_transfer(self):
+        manager = self._require_manager()
+        if not manager:
+            return
+        pk = self._pk_var.get().strip()
+        if not pk:
+            messagebox.showwarning("Private Key Required", "Enter the private key for the sending wallet.")
+            return
+        self._transfer_btn.configure(state="disabled", text="Sending...")
+        self.set_status("Sending FlashUSDT...")
+
+        def task():
+            try:
+                result = manager.transfer_flash(
+                    pk,
+                    self._transfer_to_var.get().strip(),
+                    float(self._transfer_amount_var.get().strip()),
+                )
+                self.after(0, lambda: self._show_transfer(result))
+            except Exception as exc:
+                logger.exception("Transfer failed")
+                self.after(0, lambda: self._on_error("Transfer failed", str(exc)))
+            finally:
+                self.after(0, lambda: self._transfer_btn.configure(state="normal", text="Send FlashUSDT"))
+
+        threading.Thread(target=task, daemon=True).start()
+
+    def _show_transfer(self, result: TransferResult):
+        self._transfer_output.write(
+            f"Status: {result.status}\n"
+            f"Network: {result.network}\n"
+            f"Transaction: {result.tx_hash}\n"
+            f"Token: {result.token_address}\n"
+            f"Sender: {result.sender}\n"
+            f"Recipient: {result.recipient}\n"
+            f"Amount: {result.amount:,.6f}"
+        )
+        self.set_status("Transfer submitted")
 
     def _on_listing_request(self):
         manager = self._require_manager()
