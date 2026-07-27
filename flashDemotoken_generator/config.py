@@ -16,18 +16,22 @@ INFURA_PROJECT_ID = os.getenv("INFURA_PROJECT_ID", "")
 PROJECT_ROOT = Path(__file__).resolve().parent
 DEPLOYMENTS_DIR = PROJECT_ROOT / "deployments"
 
+
+def env_or_default(name: str, default: str) -> str:
+    return os.getenv(name) or default
+
 RPC_URLS = {
-    "Ethereum": os.getenv(
+    "Ethereum": env_or_default(
         "ETHEREUM_RPC_URL",
         f"https://mainnet.infura.io/v3/{INFURA_PROJECT_ID}" if INFURA_PROJECT_ID else "https://eth.llamarpc.com",
     ),
-    "Ethereum Sepolia": os.getenv(
+    "Ethereum Sepolia": env_or_default(
         "SEPOLIA_RPC_URL",
         f"https://sepolia.infura.io/v3/{INFURA_PROJECT_ID}" if INFURA_PROJECT_ID else "https://rpc.sepolia.org",
     ),
-    "Polygon": os.getenv("POLYGON_RPC_URL", "https://polygon-rpc.com"),
-    "BSC": os.getenv("BSC_RPC_URL", "https://bsc-dataseed.binance.org"),
-    "Tron": os.getenv("TRON_FULL_HOST", "https://api.trongrid.io"),
+    "Polygon": env_or_default("POLYGON_RPC_URL", "https://polygon-rpc.com"),
+    "BSC": env_or_default("BSC_RPC_URL", "https://bsc-dataseed.binance.org"),
+    "Tron": env_or_default("TRON_FULL_HOST", "https://api.trongrid.io"),
 }
 
 RPC_URLS_FALLBACK = {
@@ -56,7 +60,7 @@ NATIVE_SYMBOLS = {
 
 USDT_ADDRESSES = {
     "Ethereum": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-    "Ethereum Sepolia": os.getenv("SEPOLIA_USDT_ADDRESS", "0x5b9f80642e9Dc024fF2E5F17b94B8FFEFE69235D"),
+    "Ethereum Sepolia": env_or_default("SEPOLIA_USDT_ADDRESS", "0x5b9f80642e9Dc024fF2E5F17b94B8FFEFE69235D"),
     "Polygon": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
     "BSC": "0x55d398326f99059fF775485246999027B3197955",
     "Tron": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
@@ -108,23 +112,23 @@ DEX_ROUTERS = {
     },
     "Ethereum Sepolia": {
         "name": "Uniswap V2 compatible",
-        "router": os.getenv("SEPOLIA_ROUTER_ADDRESS", ""),
-        "wrapped_native": os.getenv("SEPOLIA_WETH_ADDRESS", ""),
+        "router": os.getenv("SEPOLIA_ROUTER_ADDRESS") or "",
+        "wrapped_native": os.getenv("SEPOLIA_WETH_ADDRESS") or "",
     },
     "Polygon": {
         "name": "QuickSwap V2 compatible",
-        "router": os.getenv("POLYGON_ROUTER_ADDRESS", "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff"),
+        "router": env_or_default("POLYGON_ROUTER_ADDRESS", "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff"),
         "wrapped_native": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
     },
     "BSC": {
         "name": "PancakeSwap V2",
-        "router": os.getenv("BSC_ROUTER_ADDRESS", "0x10ED43C718714eb63d5aA57B78B54704E256024E"),
+        "router": env_or_default("BSC_ROUTER_ADDRESS", "0x10ED43C718714eb63d5aA57B78B54704E256024E"),
         "wrapped_native": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
     },
     "Tron": {
         "name": "TronTrade compatible",
-        "router": os.getenv("TRON_DEX_ROUTER_ADDRESS", ""),
-        "wrapped_native": os.getenv("TRON_WRAPPED_NATIVE_ADDRESS", ""),
+        "router": os.getenv("TRON_DEX_ROUTER_ADDRESS") or "",
+        "wrapped_native": os.getenv("TRON_WRAPPED_NATIVE_ADDRESS") or "",
     },
 }
 

@@ -11,10 +11,17 @@
     "deploy:amoy": "npx hardhat deploy-flash --network polygon_amoy",
     "deploy:bsc": "npx hardhat deploy-flash --network bsc",
     "deploy:bsc-testnet": "npx hardhat deploy-flash --network bsc_testnet",
-    "deploy:tron": "node scripts/deploy_tron.js"
+    "deploy:tron": "node scripts/deploy_tron.js",
+    "verify:latest": "node scripts/verify.js",
+    "verify:v2": "node scripts/verify_etherscan_v2.js",
+    "verify:sepolia": "npx hardhat verify --network sepolia",
+    "verify:polygon": "npx hardhat verify --network polygon",
+    "verify:bsc": "npx hardhat verify --network bsc"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "@nomicfoundation/hardhat-verify": "^2.0.14",
+    "@nomicfoundation/hardhat-verify": "^2.0.14",
     "@nomicfoundation/solidity-analyzer-win32-x64-msvc": "^0.1.2",
     "ethers": "^6.13.0",
     "hardhat": "^2.22.0"

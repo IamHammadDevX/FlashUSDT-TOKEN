@@ -47,6 +47,9 @@ Required for real deployment:
 Recommended RPC/API values:
 
 - `INFURA_PROJECT_ID`: create an Infura account, create a Web3 API key/project, copy the key/project ID.
+- `ETHERSCAN_API_KEY`: create an Etherscan account, open API Keys, create a key, and use it for Ethereum/Sepolia contract source verification.
+- `POLYGONSCAN_API_KEY`: PolygonScan API key for Polygon verification.
+- `BSCSCAN_API_KEY`: BscScan API key for BSC verification.
 - `ETHEREUM_RPC_URL`, `SEPOLIA_RPC_URL`, `POLYGON_RPC_URL`, `BSC_RPC_URL`: optional full RPC URLs from Infura, Alchemy, QuickNode, Chainstack, Ankr, or your own node.
 - `TRON_PRO_API_KEY`: create a TronGrid account/API key.
 - `TRON_FULL_HOST`: use `https://api.shasta.trongrid.io` for Shasta testnet first, then `https://api.trongrid.io` for mainnet.
@@ -83,6 +86,13 @@ Each deployment writes a JSON record:
 
 ```text
 flashDemotoken_generator/deployments/flashusdt.<network>.json
+```
+
+Verify the latest Sepolia deployment after setting `ETHERSCAN_API_KEY`:
+
+```powershell
+cd flashDemotoken_generator
+npm run verify:v2 -- sepolia
 ```
 
 ## Tron Deployment

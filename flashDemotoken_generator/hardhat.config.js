@@ -1,5 +1,6 @@
 require("dotenv").config({ path: "../.env" });
 require("@nomicfoundation/hardhat-ethers");
+require("@nomicfoundation/hardhat-verify");
 
 const { task } = require("hardhat/config");
 
@@ -37,12 +38,12 @@ module.exports = {
       chainId: 31337,
     },
     sepolia: {
-      url: INFURA_ID ? `https://sepolia.infura.io/v3/${INFURA_ID}` : "https://rpc.sepolia.org",
+      url: process.env.SEPOLIA_RPC_URL || (INFURA_ID ? `https://sepolia.infura.io/v3/${INFURA_ID}` : "https://ethereum-sepolia.publicnode.com"),
       accounts: accounts(),
       chainId: 11155111,
     },
     ethereum: {
-      url: INFURA_ID ? `https://mainnet.infura.io/v3/${INFURA_ID}` : "https://eth.llamarpc.com",
+      url: process.env.ETHEREUM_RPC_URL || (INFURA_ID ? `https://mainnet.infura.io/v3/${INFURA_ID}` : "https://eth.llamarpc.com"),
       accounts: accounts(),
       chainId: 1,
     },
@@ -65,6 +66,16 @@ module.exports = {
       url: process.env.BSC_TESTNET_RPC_URL || "https://data-seed-prebsc-1-s1.binance.org:8545",
       accounts: accounts(),
       chainId: 97,
+    },
+  },
+  etherscan: {
+    apiKey: {
+      mainnet: process.env.ETHERSCAN_API_KEY || "",
+      sepolia: process.env.ETHERSCAN_API_KEY || "",
+      polygon: process.env.POLYGONSCAN_API_KEY || "",
+      polygonAmoy: process.env.POLYGONSCAN_API_KEY || "",
+      bsc: process.env.BSCSCAN_API_KEY || "",
+      bscTestnet: process.env.BSCSCAN_API_KEY || "",
     },
   },
 };
