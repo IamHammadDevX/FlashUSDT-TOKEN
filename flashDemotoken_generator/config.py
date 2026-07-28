@@ -38,7 +38,7 @@ RPC_URLS_FALLBACK = {
     "Ethereum": "https://eth.llamarpc.com",
     "Ethereum Sepolia": "https://rpc.sepolia.org",
     "Polygon": "https://polygon.llamarpc.com",
-    "BSC": "https://bsc.llamarpc.com",
+    "BSC": "https://binance.nodereal.io",
     "Tron": "https://api.tronstack.io",
 }
 
@@ -66,9 +66,8 @@ USDT_ADDRESSES = {
     "Tron": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
 }
 
-VALIDITY_3_MONTHS = 90 * 24 * 60 * 60
-VALIDITY_6_MONTHS = 180 * 24 * 60 * 60
-VALIDITY_MAP = {3: VALIDITY_3_MONTHS, 6: VALIDITY_6_MONTHS}
+# Token decimals
+TOKEN_DECIMALS = 6
 
 TRADING_PLATFORMS = ["Qurtx", "Pocket Option", "Exness", "Stake", "7xBET", "1xBET"]
 EXCHANGES = ["Binance", "Bitget", "MEXC", "Bybit"]
@@ -176,15 +175,19 @@ USDT_ABI = [
 ]
 
 FLASH_USDT_ABI = [
-    {"inputs": [{"name": "to", "type": "address"}, {"name": "amount", "type": "uint256"}], "name": "mint", "outputs": [], "stateMutability": "nonpayable", "type": "function"},
-    {"inputs": [{"name": "from", "type": "address"}, {"name": "amount", "type": "uint256"}], "name": "burn", "outputs": [], "stateMutability": "nonpayable", "type": "function"},
-    {"inputs": [{"name": "newExpiry", "type": "uint256"}], "name": "setExpiry", "outputs": [], "stateMutability": "nonpayable", "type": "function"},
-    {"inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "stateMutability": "view", "type": "function"},
-    {"inputs": [], "name": "decimals", "outputs": [{"name": "", "type": "uint8"}], "stateMutability": "view", "type": "function"},
-    {"inputs": [], "name": "isExpired", "outputs": [{"name": "", "type": "bool"}], "stateMutability": "view", "type": "function"},
-    {"inputs": [], "name": "getExpiry", "outputs": [{"name": "", "type": "uint256"}], "stateMutability": "view", "type": "function"},
+    {"inputs": [], "name": "name", "outputs": [{"name": "", "type": "string"}], "stateMutability": "view", "type": "function"},
     {"inputs": [], "name": "symbol", "outputs": [{"name": "", "type": "string"}], "stateMutability": "view", "type": "function"},
-    {"inputs": [{"name": "", "type": "address"}], "name": "isFlash", "outputs": [{"name": "", "type": "bool"}], "stateMutability": "view", "type": "function"},
+    {"inputs": [], "name": "decimals", "outputs": [{"name": "", "type": "uint8"}], "stateMutability": "view", "type": "function"},
+    {"inputs": [], "name": "logoURI", "outputs": [{"name": "", "type": "string"}], "stateMutability": "view", "type": "function"},
+    {"inputs": [], "name": "totalSupply", "outputs": [{"name": "", "type": "uint256"}], "stateMutability": "view", "type": "function"},
+    {"inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "stateMutability": "view", "type": "function"},
+    {"inputs": [{"name": "to", "type": "address"}, {"name": "amount", "type": "uint256"}], "name": "transfer", "outputs": [{"name": "", "type": "bool"}], "stateMutability": "nonpayable", "type": "function"},
+    {"inputs": [{"name": "spender", "type": "address"}], "name": "allowance", "outputs": [{"name": "", "type": "uint256"}], "stateMutability": "view", "type": "function"},
+    {"inputs": [{"name": "spender", "type": "address"}, {"name": "amount", "type": "uint256"}], "name": "approve", "outputs": [{"name": "", "type": "bool"}], "stateMutability": "nonpayable", "type": "function"},
+    {"inputs": [{"name": "from", "type": "address"}, {"name": "to", "type": "address"}, {"name": "amount", "type": "uint256"}], "name": "transferFrom", "outputs": [{"name": "", "type": "bool"}], "stateMutability": "nonpayable", "type": "function"},
+    {"inputs": [{"name": "to", "type": "address"}, {"name": "amount", "type": "uint256"}], "name": "mint", "outputs": [], "stateMutability": "nonpayable", "type": "function"},
+    {"inputs": [{"name": "amount", "type": "uint256"}], "name": "burn", "outputs": [], "stateMutability": "nonpayable", "type": "function"},
+    {"inputs": [], "name": "owner", "outputs": [{"name": "", "type": "address"}], "stateMutability": "view", "type": "function"},
 ]
 
 ROUTER_ABI = [

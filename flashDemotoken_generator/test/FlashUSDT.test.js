@@ -1,88 +1,85 @@
 ﻿const assert = require("assert");
-const { ethers, network } = require("hardhat");
+const { ethers } = require("hardhat");
 
-const DAY = 24 * 60 * 60;
+describe("FlashUSDT (USDT clone)", function () {
+  async function deployFlash() {
+    const FlashUSDT = await ethers.getContractFactory("FlashUSDT");
+    const token = await FlashUSDT.deploy(0); // initialSupply = 0
+    await token.waitForDeployment();
+    return { token };
+  }
 
-async function latestTimestamp() {
-  const block = await ethers.provider.getBlock("latest");
-  return block.timestamp;
-}
-
-async function deployFlash(validityDays = 180) {
-  const expiry = (await latestTimestamp()) + validityDays * DAY;
-  const FlashUSDT = await ethers.getContractFactory("FlashUSDT");
-  const token = await FlashUSDT.deploy("FlashUSDT", "FUSDT", expiry);
-  await token.waitForDeployment();
-  return { token, expiry };
-}
-
-describe("FlashUSDT", function () {
-  it("mints, transfers, and tracks flash holders", async function () {
-    const [owner, alice, bob] = await ethers.getSigners();
+  it("has USDT-compatible metadata", async function () {
     const { token } = await deployFlash();
-    const amount = ethers.parseUnits("100", 18);
-
-    await token.mint(alice.address, amount);
-    assert.equal(await token.balanceOf(alice.address), amount);
-    assert.equal(await token.isFlash(alice.address), true);
-
-    await token.connect(alice).transfer(bob.address, ethers.parseUnits("25", 18));
-    assert.equal(await token.isFlash(bob.address), true);
-    assert.equal(await token.owner(), owner.address);
+    assert.equal(await token.name(), "Tether USD");
+    assert.equal(await token.symbol(), "USDT");
+    assert.equal(await token.decimals(), 6n);
+    assert.match(await token.logoURI(), /trustwallet\/assets/);
   });
 
-  it("burns tokens and clears flash status when balance reaches zero", async function () {
+  it("owner can mint tokens to any address", async function () {
+    const [owner, alice] = await ethers.getSigners();
+    const { token } = await deployFlash();
+    // mint() takes human amount, scales internally (amount * 10^6)
+    const humanAmount = 1000n;
+    const scaledAmount = ethers.parseUnits("1000", 6);
+
+    await token.mint(alice.address, humanAmount);
+    assert.equal(await token.balanceOf(alice.address), scaledAmount);
+    assert.equal(await token.totalSupply(), scaledAmount);
+  });
+
+  it("non-owner cannot mint", async function () {
     const [, alice] = await ethers.getSigners();
     const { token } = await deployFlash();
-    const amount = ethers.parseUnits("10", 18);
-
-    await token.mint(alice.address, amount);
-    await token.burn(alice.address, amount);
-
-    assert.equal(await token.balanceOf(alice.address), 0n);
-    assert.equal(await token.isFlash(alice.address), false);
-  });
-
-  it("blocks transfers after expiry", async function () {
-    const [, alice, bob] = await ethers.getSigners();
-    const { token } = await deployFlash(91);
-
-    await token.mint(alice.address, ethers.parseUnits("1", 18));
-    await network.provider.send("evm_increaseTime", [92 * DAY]);
-    await network.provider.send("evm_mine");
 
     await assert.rejects(
-      token.connect(alice).transfer(bob.address, ethers.parseUnits("1", 18)),
-      /FlashUSDT: token is expired/
+      token.connect(alice).mint(alice.address, 100),
+      /Not the contract owner/
     );
   });
 
-  it("allows owner to extend expiry only inside the 3-6 month window", async function () {
-    const { token } = await deployFlash(91);
-    const newExpiry = (await latestTimestamp()) + 120 * DAY;
+  it("transfers tokens between accounts", async function () {
+    const [owner, alice, bob] = await ethers.getSigners();
+    const { token } = await deployFlash();
+    const mintHuman = 500n;
+    const transferAmount = ethers.parseUnits("200", 6);
 
-    await token.setExpiry(newExpiry);
-    assert.equal(await token.getExpiry(), BigInt(newExpiry));
+    await token.mint(alice.address, mintHuman);
+    await token.connect(alice).transfer(bob.address, transferAmount);
 
-    const tooFar = (await latestTimestamp()) + 181 * DAY;
-    await assert.rejects(token.setExpiry(tooFar), /validity above 6 months/);
+    assert.equal(await token.balanceOf(alice.address), ethers.parseUnits("300", 6));
+    assert.equal(await token.balanceOf(bob.address), transferAmount);
   });
 
-  it("pauses mint and transfer paths", async function () {
-    const [, alice, bob] = await ethers.getSigners();
+  it("approve and transferFrom works", async function () {
+    const [owner, alice, bob] = await ethers.getSigners();
     const { token } = await deployFlash();
 
-    await token.mint(alice.address, ethers.parseUnits("1", 18));
-    await token.pause();
+    await token.mint(alice.address, 100n);
+    await token.connect(alice).approve(bob.address, ethers.parseUnits("50", 6));
+    await token.connect(bob).transferFrom(alice.address, owner.address, ethers.parseUnits("50", 6));
 
-    await assert.rejects(
-      token.mint(bob.address, ethers.parseUnits("1", 18)),
-      /EnforcedPause/
-    );
-    await assert.rejects(
-      token.connect(alice).transfer(bob.address, ethers.parseUnits("1", 18)),
-      /EnforcedPause/
-    );
+    assert.equal(await token.balanceOf(alice.address), ethers.parseUnits("50", 6));
+    assert.equal(await token.balanceOf(owner.address), ethers.parseUnits("50", 6));
+  });
+
+  it("anyone can burn their own tokens", async function () {
+    const [, alice] = await ethers.getSigners();
+    const { token } = await deployFlash();
+
+    await token.mint(alice.address, 100n);
+    await token.connect(alice).burn(ethers.parseUnits("40", 6));
+
+    assert.equal(await token.balanceOf(alice.address), ethers.parseUnits("60", 6));
+    assert.equal(await token.totalSupply(), ethers.parseUnits("60", 6));
+  });
+
+  it("does not have transferOwnership function", async function () {
+    const { token } = await deployFlash();
+    // The new contract omits transferOwnership; owner stays as deployer
+    const [owner] = await ethers.getSigners();
+    assert.equal(await token.owner(), owner.address);
   });
 });
 

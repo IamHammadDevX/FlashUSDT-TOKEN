@@ -72,7 +72,7 @@ async function balance(address) {
   const decimals = Number(await contract.decimals().call());
   const raw = await contract.balanceOf(address).call();
   const value = Number(raw.toString()) / 10 ** decimals;
-  console.log(`${value} FUSDT`);
+  console.log(`${value} USDT`);
 }
 
 async function transfer(recipient, amount) {
@@ -96,15 +96,15 @@ async function info() {
   const tronWeb = getTronWeb();
   const deployment = loadDeployment();
   const contract = await contractInstance(tronWeb);
-  const [symbol, expiry, expired] = await Promise.all([
+  const [symbol, name, totalSupply] = await Promise.all([
     contract.symbol().call(),
-    contract.getExpiry().call(),
-    contract.isExpired().call(),
+    contract.name().call(),
+    contract.totalSupply().call(),
   ]);
   console.log(`Address: ${deployment.address}`);
+  console.log(`Name: ${name}`);
   console.log(`Symbol: ${symbol}`);
-  console.log(`Expiry: ${expiry.toString()}`);
-  console.log(`Expired: ${expired}`);
+  console.log(`Total supply: ${totalSupply.toString()}`);
 }
 
 async function main() {

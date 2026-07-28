@@ -34,9 +34,6 @@ function main() {
     "--contract",
     "contracts/FlashUSDT.sol:FlashUSDT",
     deployment.address,
-    "FlashUSDT",
-    "FUSDT",
-    String(deployment.expiry),
   ];
 
   const command = process.platform === "win32" ? "npx.cmd" : "npx";

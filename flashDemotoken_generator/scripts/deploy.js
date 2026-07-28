@@ -1,17 +1,6 @@
 const fs = require("fs");
 const path = require("path");
 
-const MIN_MONTHS = 3;
-const MAX_MONTHS = 6;
-
-function validitySeconds(months) {
-  const parsed = Number(months);
-  if (!Number.isInteger(parsed) || parsed < MIN_MONTHS || parsed > MAX_MONTHS) {
-    throw new Error(`Validity must be an integer between ${MIN_MONTHS} and ${MAX_MONTHS} months`);
-  }
-  return parsed * 30 * 24 * 60 * 60;
-}
-
 function explorerUrl(network, address) {
   const explorers = {
     ethereum: `https://etherscan.io/address/${address}`,
@@ -41,11 +30,9 @@ async function main(hre = require("hardhat"), args = {}) {
   }
 
   const network = hre.network.name;
-  const months = Number(args.months || 6);
-  const expiry = Math.floor(Date.now() / 1000) + validitySeconds(months);
 
   const FlashUSDT = await ethers.getContractFactory("FlashUSDT");
-  const contract = await FlashUSDT.deploy("FlashUSDT", "FUSDT", expiry);
+  const contract = await FlashUSDT.deploy(0); // initialSupply = 0, mint via owner later
   await contract.waitForDeployment();
 
   const address = await contract.getAddress();
@@ -55,8 +42,6 @@ async function main(hre = require("hardhat"), args = {}) {
     chainId: hre.network.config.chainId || 31337,
     address,
     deployer: deployer.address,
-    expiry,
-    validityMonths: months,
     deployedAt: new Date().toISOString(),
     explorer: explorerUrl(network, address),
   };
@@ -64,14 +49,13 @@ async function main(hre = require("hardhat"), args = {}) {
 
   console.log(`FlashUSDT deployed on ${network}`);
   console.log(`Address: ${address}`);
-  console.log(`Expiry: ${expiry}`);
   console.log(`Explorer: ${record.explorer}`);
   console.log(`Deployment record: ${file}`);
 
   return record;
 }
 
-module.exports = { main, validitySeconds, writeDeployment };
+module.exports = { main, writeDeployment };
 
 if (require.main === module) {
   main().catch((error) => {

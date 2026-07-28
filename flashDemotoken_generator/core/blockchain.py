@@ -26,9 +26,9 @@ from config import (
     RPC_URLS,
     RPC_URLS_FALLBACK,
     SUPPORTED_WALLETS,
+    TOKEN_DECIMALS,
     USDT_ABI,
     USDT_ADDRESSES,
-    VALIDITY_MAP,
     load_deployed_flash_address,
 )
 
@@ -134,13 +134,11 @@ class EVMChainManager:
 
         return {"native": round(native, 6), "usdt": round(usdt, 2)}
 
-    def generate_token(self, private_key: str, recipient: str, amount: float, validity_months: int) -> GeneratedToken:
+    def generate_token(self, private_key: str, recipient: str, amount: float) -> GeneratedToken:
         validate_amount(amount)
-        validate_validity_months(validity_months)
         sender = self.derive_address(private_key)
         recipient = validate_evm_address(recipient)
         now = int(time.time())
-        validity_s = VALIDITY_MAP[validity_months]
 
         raw = f"{sender}{recipient}{amount}{now}{self.network}".encode()
         token_raw = f"flash{self.network}{amount}{now}".encode()
@@ -152,13 +150,12 @@ class EVMChainManager:
             recipient=recipient,
             amount=float(amount),
             timestamp=now,
-            expiry=now + validity_s,
-            validity_months=validity_months,
+            expiry=0,
+            validity_months=0,
         )
 
-    def mint_flash(self, private_key: str, recipient: str, amount: float, months: int = 6) -> GeneratedToken:
+    def mint_flash(self, private_key: str, recipient: str, amount: float) -> GeneratedToken:
         validate_amount(amount)
-        validate_validity_months(months)
         recipient = validate_evm_address(recipient)
         contract_address = load_deployed_flash_address(self.network)
         if not contract_address:
@@ -166,13 +163,13 @@ class EVMChainManager:
 
         account = self.w3.eth.account.from_key(normalize_private_key(private_key))
         contract = self.w3.eth.contract(address=validate_evm_address(contract_address), abi=FLASH_USDT_ABI)
-        decimals = contract.functions.decimals().call()
-        amount_wei = int(float(amount) * (10 ** decimals))
+        # Contract's mint() scales internally (amount × 10**decimals), so we pass human amount
+        amount_human = int(float(amount))
 
-        tx = contract.functions.mint(recipient, amount_wei).build_transaction({
+        tx = contract.functions.mint(recipient, amount_human).build_transaction({
             "from": account.address,
             "nonce": self.w3.eth.get_transaction_count(account.address, "pending"),
-            "gas": estimate_gas_or_default(contract.functions.mint(recipient, amount_wei), account.address, 200_000),
+            "gas": estimate_gas_or_default(contract.functions.mint(recipient, amount_human), account.address, 200_000),
             "gasPrice": self.w3.eth.gas_price,
             "chainId": CHAIN_IDS[self.network],
         })
@@ -182,12 +179,6 @@ class EVMChainManager:
         if receipt["status"] != 1:
             raise RuntimeError(f"Mint transaction reverted: {tx_hash.hex()}")
 
-        now = int(time.time())
-        try:
-            expiry = int(contract.functions.getExpiry().call())
-        except Exception:
-            expiry = now + VALIDITY_MAP[months]
-
         return GeneratedToken(
             tx_hash=tx_hash.hex(),
             token_address=contract_address,
@@ -195,9 +186,9 @@ class EVMChainManager:
             sender=account.address,
             recipient=recipient,
             amount=float(amount),
-            timestamp=now,
-            expiry=expiry,
-            validity_months=months,
+            timestamp=int(time.time()),
+            expiry=0,
+            validity_months=0,
         )
 
     def swap_token(self, from_token: str, to_token: str, amount: float, slippage: float) -> SwapRequest:
@@ -336,9 +327,8 @@ class TronChainManager:
             logger.warning("Tron balance error: %s", error)
             return {"native": 0, "usdt": 0}
 
-    def generate_token(self, private_key: str, recipient: str, amount: float, validity_months: int) -> GeneratedToken:
+    def generate_token(self, private_key: str, recipient: str, amount: float) -> GeneratedToken:
         validate_amount(amount)
-        validate_validity_months(validity_months)
         validate_tron_address(recipient)
         sender = self.derive_address(private_key)
         now = int(time.time())
@@ -351,13 +341,12 @@ class TronChainManager:
             recipient=recipient,
             amount=float(amount),
             timestamp=now,
-            expiry=now + VALIDITY_MAP[validity_months],
-            validity_months=validity_months,
+            expiry=0,
+            validity_months=0,
         )
 
-    def mint_flash(self, private_key: str, recipient: str, amount: float, months: int = 6) -> GeneratedToken:
+    def mint_flash(self, private_key: str, recipient: str, amount: float) -> GeneratedToken:
         validate_amount(amount)
-        validate_validity_months(months)
         validate_tron_address(recipient)
         contract_address = load_deployed_flash_address("Tron")
         if not contract_address:
@@ -387,7 +376,6 @@ class TronChainManager:
                 tx_hash = line.split(":", 1)[1].strip()
                 break
 
-        now = int(time.time())
         return GeneratedToken(
             tx_hash=tx_hash,
             token_address=contract_address,
@@ -395,9 +383,9 @@ class TronChainManager:
             sender=sender,
             recipient=recipient,
             amount=float(amount),
-            timestamp=now,
-            expiry=now + VALIDITY_MAP[months],
-            validity_months=months,
+            timestamp=int(time.time()),
+            expiry=0,
+            validity_months=0,
         )
 
     def swap_token(self, from_token: str, to_token: str, amount: float, slippage: float) -> SwapRequest:
@@ -484,13 +472,13 @@ class ChainManager:
     def get_balances(self, address: str) -> dict:
         return self.impl.get_balances(address)
 
-    def generate_token(self, private_key: str, recipient: str, amount: float, validity_months: int) -> GeneratedToken:
-        return self.impl.generate_token(private_key, recipient, amount, validity_months)
+    def generate_token(self, private_key: str, recipient: str, amount: float) -> GeneratedToken:
+        return self.impl.generate_token(private_key, recipient, amount)
 
-    def mint_flash(self, private_key: str, recipient: str, amount: float, months: int = 6) -> GeneratedToken:
+    def mint_flash(self, private_key: str, recipient: str, amount: float) -> GeneratedToken:
         if not hasattr(self.impl, "mint_flash"):
             raise NotImplementedError("On-chain minting on Tron is handled by the Tron deployment adapter")
-        return self.impl.mint_flash(private_key, recipient, amount, months)
+        return self.impl.mint_flash(private_key, recipient, amount)
 
     def swap_token(self, from_token: str, to_token: str, amount: float, slippage: float) -> SwapRequest:
         validate_amount(amount)
@@ -524,12 +512,8 @@ class ChainManager:
         }
 
     def get_validity_window(self) -> int:
-        address = load_deployed_flash_address(self.network)
-        if not address or self.network == "Tron":
-            return 0
-        contract = self.impl.w3.eth.contract(address=validate_evm_address(address), abi=FLASH_USDT_ABI)
-        expiry = int(contract.functions.getExpiry().call())
-        return max(0, (expiry - int(time.time())) // 86400)
+        """No expiry on USDT clone — tokens are always valid."""
+        return 36500  # ~100 years, effectively permanent
 
     @staticmethod
     def detect_wallet_provider(provider_url: str = "") -> dict:
@@ -553,7 +537,8 @@ class ChainManager:
 
     @staticmethod
     def check_validity(tx_data: dict) -> bool:
-        return int(time.time()) < int(tx_data.get("expiry", 0))
+        """USDT clone has no expiry — always valid."""
+        return True
 
     @staticmethod
     def get_compatible_platforms(network: str) -> dict[str, bool]:
@@ -561,12 +546,8 @@ class ChainManager:
 
     @staticmethod
     def time_remaining(expiry: int) -> str:
-        remaining = int(expiry) - int(time.time())
-        if remaining <= 0:
-            return "Expired"
-        days = remaining // 86400
-        hours = (remaining % 86400) // 3600
-        return f"{days}d {hours}h"
+        """USDT clone has no expiry — always valid."""
+        return "No expiry (permanent)"
 
     @property
     def flash_usdt_available(self) -> bool:
@@ -615,11 +596,6 @@ def validate_slippage(slippage: float) -> None:
     parsed = float(slippage)
     if parsed < 0.1 or parsed > 50:
         raise ValueError("Slippage must be between 0.1 and 50 percent")
-
-
-def validate_validity_months(months: int) -> None:
-    if int(months) not in VALIDITY_MAP:
-        raise ValueError("Validity must be 3 or 6 months")
 
 
 def estimate_gas_or_default(contract_function, from_address: str, default: int) -> int:

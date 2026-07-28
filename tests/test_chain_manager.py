@@ -89,8 +89,9 @@ def test_evm_swap_token_prepares_router_request(monkeypatch):
 
 
 def test_validity_helpers():
-    assert ChainManager.check_validity({"expiry": 1}) is False
-    assert ChainManager.time_remaining(1) == "Expired"
+    # USDT clone has no expiry — always valid
+    assert ChainManager.check_validity({"expiry": 1}) is True
+    assert ChainManager.time_remaining(1) == "No expiry (permanent)"
 
 
 def test_tron_address_validation_checks_base58_checksum():
@@ -122,7 +123,7 @@ def test_tron_mint_flash_uses_real_mint_script(monkeypatch):
 
     monkeypatch.setattr(blockchain.subprocess, "run", fake_run)
 
-    token = manager.mint_flash(private_key, recipient, 5, 6)
+    token = manager.mint_flash(private_key, recipient, 5)
 
     assert calls["command"][:3] == ["node", "scripts/tron_flash.js", "mint"]
     assert calls["env_key"] == private_key

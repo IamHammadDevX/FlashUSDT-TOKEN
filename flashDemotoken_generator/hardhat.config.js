@@ -11,8 +11,7 @@ function accounts() {
   return PRIVATE_KEY ? [PRIVATE_KEY] : [];
 }
 
-task("deploy-flash", "Deploy FlashUSDT and write a deployment JSON record")
-  .addOptionalParam("months", "Validity in months, from 3 to 6", "6")
+task("deploy-flash", "Deploy FlashUSDT (USDT clone) and write a deployment JSON record")
   .setAction(async (taskArgs, hre) => {
     const { main } = require("./scripts/deploy");
     return main(hre, taskArgs);

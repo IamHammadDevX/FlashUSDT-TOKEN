@@ -90,9 +90,7 @@ async function main() {
 
   const deployment = loadJson(path.join(__dirname, "..", "deployments", network.file));
   const buildInfo = findBuildInfo();
-  const constructorArguments = ethers.AbiCoder.defaultAbiCoder()
-    .encode(["string", "string", "uint256"], ["FlashUSDT", "FUSDT", BigInt(deployment.expiry)])
-    .replace(/^0x/, "");
+  const constructorArguments = ""; // FlashUSDT (USDT clone) has no constructor params
 
   const result = await postForm(network.chainId, {
     module: "contract",

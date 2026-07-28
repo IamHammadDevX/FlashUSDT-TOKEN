@@ -18,9 +18,9 @@ logging.basicConfig(
 
 def main():
     # Late import so logging is configured first
-    from ui.gui import USDTGeneratorApp
+    from ui.gui import USDGeneratorApp
 
-    app = USDTGeneratorApp()
+    app = USDGeneratorApp()
     app.mainloop()
 
 
